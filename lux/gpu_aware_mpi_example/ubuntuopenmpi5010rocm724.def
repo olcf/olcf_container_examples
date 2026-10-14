@@ -1,0 +1,55 @@
+Bootstrap: docker
+From: rocm/dev-ubuntu-24.04:7.2.4-complete
+
+%environment
+    # Point to OMPI binaries, libraries, man pages
+    export OMPI_DIR=/opt/ompi
+    export PATH="$OMPI_DIR/bin:$PATH"
+    export LD_LIBRARY_PATH="$OMPI_DIR/lib:$LD_LIBRARY_PATH"
+    export MANPATH="$OMPI_DIR/share/man:$MANPATH"
+    # Point to rocm locations
+    export ROCM_PATH=/opt/rocm
+    export LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH"
+    export PATH="/opt/rocm/bin:$PATH"
+    
+%files
+  ping_pong_gpu_aware.cpp /ping_pong_gpu_aware.cpp
+
+%post
+# By default you start at the root '/' location in the container images filesystem
+ls
+
+# Installing some prerequisites
+
+apt-get update && apt-get install -y \
+  wget less gfortran vim sudo gzip tar make autoconf automake \
+  binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which
+
+
+echo "Installing Open MPI"
+export OMPI_DIR=/opt/ompi
+export OMPI_VERSION=5.0.10
+export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$OMPI_VERSION.tar.bz2"
+mkdir -p /ompi
+mkdir -p /opt
+cd /ompi && wget -O openmpi-$OMPI_VERSION.tar.bz2 $OMPI_URL && tar -xjf openmpi-$OMPI_VERSION.tar.bz2
+# Compile and install
+cd /ompi/openmpi-$OMPI_VERSION && ./configure --prefix=$OMPI_DIR --with-device=ch4:ucx && make -j32 install
+
+# Set env variables so we can compile our application
+export PATH=$OMPI_DIR/bin:$PATH
+export LD_LIBRARY_PATH=$OMPI_DIR/lib:$LD_LIBRARY_PATH
+
+rm -rf /ompi
+
+# build ping_pong_gpu_aware.cpp
+cd /
+which hipcc
+echo $PATH
+export PATH="$MPICH_DIR/bin:/opt/rocm/bin:$PATH"
+export ROCM_PATH=/opt/rocm
+
+# ping pong GPU aware MPI
+hipcc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.cpp -I${MPICH_DIR}/include -L${MPICH_DIR}/lib -lmpi
+#mpicc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.o  -L${ROCM_PATH}/lib -lamdhip64
+

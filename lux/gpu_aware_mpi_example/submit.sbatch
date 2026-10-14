@@ -1,0 +1,84 @@
+#!/bin/bash 
+#SBATCH -t00:10:00 
+#SBATCH -Astf007
+#SBATCH -p batch
+#SBATCH -N2
+#SBATCH --gpus-per-node 1
+#SBATCH -J lux_gpu_aware_mpi_example
+#SBATCH -o logs/%x_%j.out
+
+#module reset
+#module load cpe/24.11
+## Loading rocm/6.2.4 since that is what is installed in the container
+#module load rocm/6.2.4
+
+# The cray-mpich-abi module contains the libmpi.so that the MPI application in
+# the container (that wasn't compiled with a Cray compiler) will look for.
+#module load cray-mpich-abi/8.1.31
+
+module list
+module load mpich
+module unload xalt
+
+# This is set so to turn on GPU aware MPI
+export MPICH_GPU_SUPPORT_ENABLED=1
+
+# below is necessary to avoid ucx permission denied warning messages
+# see https://ciq.com/blog/workaround-for-communication-issue-with-mpi-apps-apptainer-without-setuid
+export UCX_POSIX_USE_PROC_LINK=n
+
+# We are setting this as a convenience that we pass to apptainer's --bind flag. What this does is
+# mount the given directories from the host into the container so that they are visible within the
+# container. So any application inside the container are able to reach the files in these locations
+# on the host. We are binding these specific locations as they are required for the Cray MPICH
+# libraries to be visible inside the container and for MPI to work with good performance. The
+# application in the container will be able to see and link to the Cray MPICH libraries instead of
+# using the MPICH libraries we install in the container.
+export APPTAINER_BINDPATH=/sw,/usr/share/libdrm,/var/spool/slurm,${PWD}
+
+# What APPTAINERENV_* does is set that environment variable inside the container environment. 
+# For example, if you `export APPTAINERENV_BLAH=foo` before you do an `apptainer (run|exec|shell)`,
+# within your container the environment variable BLAH=foo will be set.
+# So here, we are setting the value of LD_LIBRARY_PATH inside the container to include the Cray
+# MPICH locations (which we have access to because we mount /opt/cray into the container, see 
+# the BINDS environment variable), the host's LD_LIBRARY_PATH and CRAY_LD_LIBRARY_PATH contents, 
+# and the container's (not host's) rocm location. This will replace any preexisting LD_LIBRARY_PATH
+# that might've been defined as part of the container build, so make sure to explicitly include 
+# any paths from within the container's file tree that you want available to the application 
+# in the container.
+#export APPTAINERENV_LD_LIBRARY_PATH="$CRAY_MPICH_ROOTDIR/gtl/lib:/opt/cray/lib64:/opt/rocm/lib:/opt/rocm/lib64:$CRAY_LD_LIBRARY_PATH:$LD_LIBRARY_PATH:/opt/cray/pe/lib64" 
+
+# APPTAINER_CONTAINLIBS allows you to specify individual libraries from the host that you want
+# visible inside the container and added to the LD_LIBRARY_PATH inside the container.
+# In this GPU aware MPI example, Some specific libraries from the host's /usr/lib64 need to 
+# be visible inside the container for the Cray MPICH libraries (that we are making visible 
+# inside the container with the earlier steps) to work as the Cray MPICH libraries are linked
+# linked to them.
+#export APPTAINER_CONTAINLIBS="/usr/lib64/libjansson.so.4,/usr/lib64/libgfortran.so.5,/usr/lib64/libnl-3.so.200,/lib64/libtinfo.so.6,/usr/lib64/libjson-c.so.5,/usr/lib64/libcxi.so.1,/opt/xpmem/lib64/libxpmem.so.0"
+
+# This is required when you have an application that is compiled inside a container that 
+# doesn't have access to the Cray MPICH libraries during the container build process (such as our
+# example opensusempich342rocm624.def). The libmpi_gtl_hsa.so is what provides GPU aware MPI,
+# but the application is not linked to it because it wasn't available in the container when the 
+# application was being built during the container build process. So we
+# need to make sure it is preloaded so that the application uses it.
+#export APPTAINERENV_LD_PRELOAD=$CRAY_MPICH_ROOTDIR/gtl/lib/libmpi_gtl_hsa.so.0:
+
+# This is executing the ping_ping_gpu_aware.exe in the container with `apptainer exec`. 
+# The program passes data allocated on GPU memory of increasing size back and forth between 
+# two MPI processes across two nodes.
+# The --rocm flag is required to support AMD GPUs inside the container.
+
+
+# works (for one node, two tasks per node, 1 gpu per task)
+#srun --mpi=pmi2 -N1 --tasks-per-node 2 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+
+# fails (for two nodes, 1 task per node, 1 gpu per task)
+#srun --mpi=pmi2 -N2 --tasks-per-node 1 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+# srun  -N2 --gres-flags=allow-task-sharing   --tasks-per-node 1 --gpus-per-task=1 env  UCX_NET_DEVICES=ai0,ai1,ai2,ai3,ai4,ai5,ai6,ai7,bond0 UCX_TLS=tcp,self,sm  apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+
+# (for two nodes, 1 task per node, 1 gpu per task)
+export APPTAINERENV_LD_LIBRARY_PATH=$MPICH_DIR/lib:\$LD_LIBRARY_PATH
+export APPTAINER_CONTAINLIBS=/usr/lib64/libpmi2.so.0
+#srun  -N2  --tasks-per-node 1 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+#--gres-flags=allow-task-sharing

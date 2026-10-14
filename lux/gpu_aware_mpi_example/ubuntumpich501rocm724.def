@@ -1,0 +1,55 @@
+Bootstrap: docker
+From: rocm/dev-ubuntu-24.04:7.2.4-complete
+
+%environment
+    # Point to MPICH binaries, libraries man pages
+    export MPICH_DIR=/opt/mpich
+    export PATH="$MPICH_DIR/bin:$PATH"
+    export LD_LIBRARY_PATH="$MPICH_DIR/lib:$LD_LIBRARY_PATH"
+    export MANPATH=$MPICH_DIR/share/man:$MANPATH
+    # Point to rocm locations
+    export ROCM_PATH=/opt/rocm
+    export LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH"
+    export PATH="/opt/rocm/bin:$PATH"
+    
+%files
+  ping_pong_gpu_aware.cpp /ping_pong_gpu_aware.cpp
+
+%post
+# By default you start at the root '/' location in the container images filesystem
+ls
+
+# Installing some prerequisites
+
+apt-get update && apt-get install -y \
+  wget less gfortran vim sudo gzip tar make autoconf automake \
+ hwloc libhwloc-dev binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which
+
+
+# Installing MPICH 4.1.2
+# Information about the version of MPICH to use
+# see "module show cray-mpich/9.0.2" for the ANL MPICH version that Cray MPICH is based on
+export MPICH_VERSION=5.0.1
+export MPICH_URL="http://www.mpich.org/static/downloads/$MPICH_VERSION/mpich-$MPICH_VERSION.tar.gz"
+export MPICH_DIR=/opt/mpich
+
+echo "Installing MPICH..."
+mkdir -p /mpich
+mkdir -p /opt
+# Download
+cd /mpich && wget -O mpich-$MPICH_VERSION.tar.gz $MPICH_URL && tar --no-same-owner -xzf mpich-$MPICH_VERSION.tar.gz
+# Compile and install
+cd /mpich/mpich-$MPICH_VERSION && ./configure  --with-device=ch4:ucx --prefix=$MPICH_DIR && make -j32 install
+rm -rf /mpich
+
+# build ping_pong_gpu_aware.cpp
+cd /
+which hipcc
+echo $PATH
+export PATH="$MPICH_DIR/bin:/opt/rocm/bin:$PATH"
+export ROCM_PATH=/opt/rocm
+
+# ping pong GPU aware MPI
+hipcc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.cpp -I${MPICH_DIR}/include -L${MPICH_DIR}/lib -lmpi
+#mpicc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.o  -L${ROCM_PATH}/lib -lamdhip64
+
