@@ -9,6 +9,6 @@
 #SBATCH -p gpu
 
 
-srun  -N1 -n1 -G1 --gpus-per-task=1  apptainer exec --nv ../containers/rockylinuxcuda133.sif /usr/local/cuda/bin/nvcc  -o cuda-test.o ./cuda-test.cu
-time srun  -N1 -n1 -G1 --gpus-per-task=1  apptainer exec --nv ../containers/rockylinuxcuda133.sif  ./cuda-test.o
+srun  -N1 -n1 -G1 --gpus-per-task=1  apptainer exec --nv rockylinuxcuda133.sif /usr/local/cuda/bin/nvcc  -o cuda-test.o ./cuda-test.cu
+time srun  -N1 -n1 -G1 --gpus-per-task=1  apptainer exec --nv rockylinuxcuda133.sif  ./cuda-test.o
 
