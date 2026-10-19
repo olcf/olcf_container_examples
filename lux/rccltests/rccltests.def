@@ -1,9 +1,0 @@
-Bootstrap: localimage
-From:  ../gpu_aware_mpi_example/ubuntumpich501rocm724.sif
-
-
-%post
-
-apt-get install -y libucx-dev ucx-utils rdma-core libibverbs-dev ibverbs-providers ibverbs-utils librdmacm-dev rdmacm-utils
-git clone https://github.com/ROCmSoftwarePlatform/rccl-tests.git
-cd rccl-tests && make MPI=1 MPI_HOME=$MPICH_DIR 

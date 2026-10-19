@@ -23,10 +23,29 @@ ls
 
 apt-get update && apt-get install -y \
   wget less gfortran vim sudo gzip tar make autoconf automake \
-  binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which
+  hwloc libhwloc-dev binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which \
+  rdma-core libibverbs-dev ibverbs-providers ibverbs-utils librdmacm-dev rdmacm-utils libtool libtool-bin libhwloc-dev hwloc \
+  libnl-genl-3-dev libyaml-dev libmunge-dev
 
+echo "Installing UCX 1.22 and UCC 1.8.0"
+wget https://github.com/openucx/ucx/releases/download/v1.22.0/ucx-1.22.0.tar.gz
+tar xzf ucx-1.22.0.tar.gz
+cd ucx-1.22.0
+mkdir build
+cd build
+../configure --prefix=/usr --with-rdmacm --with-verbs
+make -j32 install
 
-echo "Installing Open MPI"
+cd /
+git clone https://github.com/openucx/ucc/
+cd ucc
+git checkout v1.8.0
+./autogen.sh
+# --without-cuda --with-rocm-arch=--offload-arch=gfx950 'CPPFLAGS=-I/opt/rocm-7.2.4/include -I/opt/rocm-7.2.4/include/hip -I/opt/rocm-7.2.4/include/hsa' 'LDFLAGS=-L/opt/rocm-7.2.4/lib -L/opt/rocm-7.2.4/lib' --with-rocm=/opt/rocm-7.2.4 --with-ucx=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/ucx-1.22.0-6mxtgzajy42jdkhytns5642l5uapiwe4 --without-rccl
+./configure --prefix=/usr --with-ucx=/usr --without-cuda --with-rocm-arch=--offload-arch=gfx950 'CPPFLAGS=-I/opt/rocm-7.2.4/include -I/opt/rocm-7.2.4/include/hip -I/opt/rocm-7.2.4/include/hsa' 'LDFLAGS=-L/opt/rocm-7.2.4/lib -L/opt/rocm-7.2.4/lib' --with-rocm=/opt/rocm-7.2.4  --without-rccl
+make -j32 install
+
+echo "Installing Open MPI 5.0.10"
 export OMPI_DIR=/opt/ompi
 export OMPI_VERSION=5.0.10
 export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$OMPI_VERSION.tar.bz2"
@@ -34,7 +53,7 @@ mkdir -p /ompi
 mkdir -p /opt
 cd /ompi && wget -O openmpi-$OMPI_VERSION.tar.bz2 $OMPI_URL && tar -xjf openmpi-$OMPI_VERSION.tar.bz2
 # Compile and install
-cd /ompi/openmpi-$OMPI_VERSION && ./configure --prefix=$OMPI_DIR --with-device=ch4:ucx && make -j32 install
+cd /ompi/openmpi-$OMPI_VERSION && ./configure --prefix=$OMPI_DIR  --with-rocm=/opt/rocm-7.2.4 --with-ucx=/usr --with-ucc=/usr --with-pmix --with-hwloc && make -j32 install
 
 # Set env variables so we can compile our application
 export PATH=$OMPI_DIR/bin:$PATH
@@ -46,10 +65,10 @@ rm -rf /ompi
 cd /
 which hipcc
 echo $PATH
-export PATH="$MPICH_DIR/bin:/opt/rocm/bin:$PATH"
+export PATH="$OMPI_DIR/bin:/opt/rocm/bin:$PATH"
 export ROCM_PATH=/opt/rocm
 
 # ping pong GPU aware MPI
-hipcc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.cpp -I${MPICH_DIR}/include -L${MPICH_DIR}/lib -lmpi
+hipcc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.cpp -I${OMPI_DIR}/include -L${OMPI_DIR}/lib -lmpi
 #mpicc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.o  -L${ROCM_PATH}/lib -lamdhip64
 

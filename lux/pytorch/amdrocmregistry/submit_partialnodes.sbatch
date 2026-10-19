@@ -39,9 +39,6 @@ export APPTAINER_BINDPATH=/etc/libibverbs.d
 export APPTAINER_CONTAINLIBS=/usr/lib64/libionic.so.1,/usr/lib64/libionic.so.1.1.61,/usr/lib64/libibverbs.so,/usr/lib64/libibverbs.so.1,/usr/lib64/libmlx4.so.1,/usr/lib64/libmlx5.so.1,/usr/lib64/libnl-3.so.200,/usr/lib64/libnl-route-3.so.200
 export APPTAINER_CONTAINLIBS=$APPTAINER_CONTAINLIBS,/usr/lib64/libibverbs/libbnxt_re-rdmav59.so,/usr/lib64/libibverbs/libcxgb4-rdmav59.so,/usr/lib64/libibverbs/libefa-rdmav59.so,/usr/lib64/libibverbs/liberdma-rdmav59.so,/usr/lib64/libibverbs/libhfi1verbs-rdmav59.so,/usr/lib64/libibverbs/libhns-rdmav59.so,/usr/lib64/libibverbs/libionic-rdmav59.so,/usr/lib64/libibverbs/libipathverbs-rdmav59.so,/usr/lib64/libibverbs/libirdma-rdmav59.so,/usr/lib64/libibverbs/libmana-rdmav59.so,/usr/lib64/libibverbs/libmlx4-rdmav59.so,/usr/lib64/libibverbs/libmlx5-rdmav59.so,/usr/lib64/libibverbs/libmthca-rdmav59.so,/usr/lib64/libibverbs/libocrdma-rdmav59.so,/usr/lib64/libibverbs/libqedr-rdmav59.so,/usr/lib64/libibverbs/librxe-rdmav59.so,/usr/lib64/libibverbs/libsiw-rdmav59.so,/usr/lib64/libibverbs/libvmw_pvrdma-rdmav59.so
 
-# For this example, there is no real performance difference when using the NIC affinity script vs not
-# using it. But it mayma
-
 # without affinity script
 echo "without affinity script"
 HOME=/tmp srun -l --nodes $SLURM_NNODES  --tasks-per-node=2 \

@@ -15,3 +15,4 @@ sbatch submit.sbatch
 # To build and run OpenMPI example
 
 
+hello

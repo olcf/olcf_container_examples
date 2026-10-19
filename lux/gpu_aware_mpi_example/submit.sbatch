@@ -35,6 +35,12 @@ export UCX_POSIX_USE_PROC_LINK=n
 # application in the container will be able to see and link to the Cray MPICH libraries instead of
 # using the MPICH libraries we install in the container.
 export APPTAINER_BINDPATH=/sw,/usr/share/libdrm,/var/spool/slurm,${PWD}
+export APPTAINER_BINDPATH=$APPTAINER_BINDPATH,/etc/libibverbs.d
+export APPTAINER_CONTAINLIBS=/usr/lib64/libionic.so.1,/usr/lib64/libionic.so.1.1.61,/usr/lib64/libibverbs.so,/usr/lib64/libibverbs.so.1,/usr/lib64/libmlx4.so.1,/usr/lib64/libmlx5.so.1,/usr/lib64/libnl-3.so.200,/usr/lib64/libnl-route-3.so.200
+export APPTAINER_CONTAINLIBS=$APPTAINER_CONTAINLIBS,/usr/lib64/libibverbs/libbnxt_re-rdmav59.so,/usr/lib64/libibverbs/libcxgb4-rdmav59.so,/usr/lib64/libibverbs/libefa-rdmav59.so,/usr/lib64/libibverbs/liberdma-rdmav59.so,/usr/lib64/libibverbs/libhfi1verbs-rdmav59.so,/usr/lib64/libibverbs/libhns-rdmav59.so,/usr/lib64/libibverbs/libionic-rdmav59.so,/usr/lib64/libibverbs/libipathverbs-rdmav59.so,/usr/lib64/libibverbs/libirdma-rdmav59.so,/usr/lib64/libibverbs/libmana-rdmav59.so,/usr/lib64/libibverbs/libmlx4-rdmav59.so,/usr/lib64/libibverbs/libmlx5-rdmav59.so,/usr/lib64/libibverbs/libmthca-rdmav59.so,/usr/lib64/libibverbs/libocrdma-rdmav59.so,/usr/lib64/libibverbs/libqedr-rdmav59.so,/usr/lib64/libibverbs/librxe-rdmav59.so,/usr/lib64/libibverbs/libsiw-rdmav59.so,/usr/lib64/libibverbs/libvmw_pvrdma-rdmav59.so
+
+export APPTAINERENV_LD_LIBRARY_PATH=$MPICH_DIR/lib:\$LD_LIBRARY_PATH
+export APPTAINER_CONTAINLIBS=/usr/lib64/libpmi2.so.0,$APPTAINER_CONTAINLIBS
 
 # What APPTAINERENV_* does is set that environment variable inside the container environment. 
 # For example, if you `export APPTAINERENV_BLAH=foo` before you do an `apptainer (run|exec|shell)`,
@@ -70,15 +76,19 @@ export APPTAINER_BINDPATH=/sw,/usr/share/libdrm,/var/spool/slurm,${PWD}
 # The --rocm flag is required to support AMD GPUs inside the container.
 
 
-# works (for one node, two tasks per node, 1 gpu per task)
-#srun --mpi=pmi2 -N1 --tasks-per-node 2 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+# 2 tasks on 1 node
+srun --gres-flags=allow-task-sharing --mpi=pmi2 -N1 --tasks-per-node 2 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724_minimal.sif /ping_pong_gpu_aware.exe
 
 # fails (for two nodes, 1 task per node, 1 gpu per task)
 #srun --mpi=pmi2 -N2 --tasks-per-node 1 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
-# srun  -N2 --gres-flags=allow-task-sharing   --tasks-per-node 1 --gpus-per-task=1 env  UCX_NET_DEVICES=ai0,ai1,ai2,ai3,ai4,ai5,ai6,ai7,bond0 UCX_TLS=tcp,self,sm  apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
 
-# (for two nodes, 1 task per node, 1 gpu per task)
-export APPTAINERENV_LD_LIBRARY_PATH=$MPICH_DIR/lib:\$LD_LIBRARY_PATH
-export APPTAINER_CONTAINLIBS=/usr/lib64/libpmi2.so.0
-#srun  -N2  --tasks-per-node 1 --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
-#--gres-flags=allow-task-sharing
+# 2 tasks across 2 nodes - without affinity script
+srun  -N2 --gres-flags=allow-task-sharing   --tasks-per-node 1 --gpus-per-task=1 \
+    apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+
+# 2 tasks across 2 nodes - with affinity script
+srun  -N2 --gres-flags=allow-task-sharing   --tasks-per-node 1 --gpus-per-task=1 \
+   /lustre/orion/stf243/world-shared/xjv/slurm-ucx-affinity-pin \
+    apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724.sif /ping_pong_gpu_aware.exe
+
+# with affinity script
