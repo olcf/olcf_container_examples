@@ -8,6 +8,7 @@
 #SBATCH --gpus-per-node=8
 
 
+module reset
 
 
 module unload xalt
