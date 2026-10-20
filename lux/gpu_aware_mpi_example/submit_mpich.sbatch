@@ -3,7 +3,7 @@
 #SBATCH -Astf007
 #SBATCH -p batch
 #SBATCH -N2
-#SBATCH --gpus-per-node 1
+#SBATCH --gpus-per-node 2
 #SBATCH -J lux_gpu_aware_mpi_example
 #SBATCH -o logs/%x_%j.out
 
@@ -50,17 +50,18 @@ export APPTAINERENV_LD_LIBRARY_PATH=$OLCF_MPICH_ROOT/lib:\$LD_LIBRARY_PATH
 # In this GPU aware MPI example, Some specific libraries from the host's /usr/lib64 need to 
 # be visible inside the container for the host's MPICH and UCX libraries (that we are making visible 
 # inside the container with the earlier steps) to work.
-export APPTAINER_CONTAINLIBS=/usr/lib64/libionic.so.1,/usr/lib64/libionic.so.1.1.61,/usr/lib64/libibverbs.so,/usr/lib64/libibverbs.so.1,/usr/lib64/libmlx4.so.1,/usr/lib64/libmlx5.so.1,/usr/lib64/libnl-3.so.200,/usr/lib64/libnl-route-3.so.200
+export APPTAINER_CONTAINLIBS=/usr/lib64/libpmi2.so.0
+export APPTAINER_CONTAINLIBS=$APPTAINER_CONTAINLIBS,/usr/lib64/libionic.so.1,/usr/lib64/libionic.so.1.1.61,/usr/lib64/libibverbs.so,/usr/lib64/libibverbs.so.1,/usr/lib64/libmlx4.so.1,/usr/lib64/libmlx5.so.1,/usr/lib64/libnl-3.so.200,/usr/lib64/libnl-route-3.so.200
 export APPTAINER_CONTAINLIBS=$APPTAINER_CONTAINLIBS,/usr/lib64/libibverbs/libbnxt_re-rdmav59.so,/usr/lib64/libibverbs/libcxgb4-rdmav59.so,/usr/lib64/libibverbs/libefa-rdmav59.so,/usr/lib64/libibverbs/liberdma-rdmav59.so,/usr/lib64/libibverbs/libhfi1verbs-rdmav59.so,/usr/lib64/libibverbs/libhns-rdmav59.so,/usr/lib64/libibverbs/libionic-rdmav59.so,/usr/lib64/libibverbs/libipathverbs-rdmav59.so,/usr/lib64/libibverbs/libirdma-rdmav59.so,/usr/lib64/libibverbs/libmana-rdmav59.so,/usr/lib64/libibverbs/libmlx4-rdmav59.so,/usr/lib64/libibverbs/libmlx5-rdmav59.so,/usr/lib64/libibverbs/libmthca-rdmav59.so,/usr/lib64/libibverbs/libocrdma-rdmav59.so,/usr/lib64/libibverbs/libqedr-rdmav59.so,/usr/lib64/libibverbs/librxe-rdmav59.so,/usr/lib64/libibverbs/libsiw-rdmav59.so,/usr/lib64/libibverbs/libvmw_pvrdma-rdmav59.so
 
 set -x
 # works (for one node, two tasks per node, 1 gpu per task)
-srun  -N1 --tasks-per-node 2  --gres-flags=allow-task-sharing --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724_minimal.sif /ping_pong_gpu_aware.exe
+srun  -N1 --tasks-per-node 2  --gres-flags=allow-task-sharing --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm7141_minimal.sif /ping_pong_gpu_aware.exe
 
 # works (for two nodes, 1 task per node, 1 gpu per task)
 ## without affinity script
-srun  -N2 --tasks-per-node 1  --gres-flags=allow-task-sharing --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724_minimal.sif /ping_pong_gpu_aware.exe
+srun  -N2 --tasks-per-node 1  --gres-flags=allow-task-sharing --gpus-per-task=1 apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm7141_minimal.sif /ping_pong_gpu_aware.exe
 ## with affinity script
 srun  -N2 --tasks-per-node 1  --gres-flags=allow-task-sharing --gpus-per-task=1 \
  /lustre/orion/stf243/world-shared/xjv/slurm-ucx-affinity-pin \
-    apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm724_minimal.sif /ping_pong_gpu_aware.exe
+    apptainer --silent exec --workdir `pwd`  ./ubuntumpich501rocm7141_minimal.sif /ping_pong_gpu_aware.exe

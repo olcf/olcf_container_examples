@@ -1,7 +1,7 @@
 Build the container with
 
 ```
-apptainer build ./ubuntumpich501rocm724_minimal.sif ./ubuntumpich501rocm724_minimal.def
+apptainer build ./ubuntumpich501rocm7141_minimal.sif ./ubuntumpich501rocm7141_minimal.def
 ```
 
 Submit the job with
