@@ -25,6 +25,9 @@ rm -rf ${MIOPEN_USER_DB_PATH}
 mkdir -p ${MIOPEN_USER_DB_PATH}
 
 
+# uncomment the below line if you want debug output
+#export NCCL_DEBUG=INFO
+
 # these environment variable are needed to bind these libraries from the host into the container.
 # These libraries are essential for internode communication. The rocm Pytorch container is not
 # distributed with libionic and infiniband libraries, so we need to bind them in from the host into
@@ -32,7 +35,6 @@ mkdir -p ${MIOPEN_USER_DB_PATH}
 # Unfortunately, the other methods are not supported by Lux, so the run will fail. The below makes
 # sure that these libraries are visible to RCCL in the container so that it can properly initialize
 # and allow for internode communication.
-#export NCCL_DEBUG=INFO
 export APPTAINER_BINDPATH=/etc/libibverbs.d
 export APPTAINER_CONTAINLIBS=/usr/lib64/libionic.so.1,/usr/lib64/libionic.so.1.1.61,/usr/lib64/libibverbs.so,/usr/lib64/libibverbs.so.1,/usr/lib64/libmlx4.so.1,/usr/lib64/libmlx5.so.1,/usr/lib64/libnl-3.so.200,/usr/lib64/libnl-route-3.so.200
 export APPTAINER_CONTAINLIBS=$APPTAINER_CONTAINLIBS,/usr/lib64/libibverbs/libbnxt_re-rdmav59.so,/usr/lib64/libibverbs/libcxgb4-rdmav59.so,/usr/lib64/libibverbs/libefa-rdmav59.so,/usr/lib64/libibverbs/liberdma-rdmav59.so,/usr/lib64/libibverbs/libhfi1verbs-rdmav59.so,/usr/lib64/libibverbs/libhns-rdmav59.so,/usr/lib64/libibverbs/libionic-rdmav59.so,/usr/lib64/libibverbs/libipathverbs-rdmav59.so,/usr/lib64/libibverbs/libirdma-rdmav59.so,/usr/lib64/libibverbs/libmana-rdmav59.so,/usr/lib64/libibverbs/libmlx4-rdmav59.so,/usr/lib64/libibverbs/libmlx5-rdmav59.so,/usr/lib64/libibverbs/libmthca-rdmav59.so,/usr/lib64/libibverbs/libocrdma-rdmav59.so,/usr/lib64/libibverbs/libqedr-rdmav59.so,/usr/lib64/libibverbs/librxe-rdmav59.so,/usr/lib64/libibverbs/libsiw-rdmav59.so,/usr/lib64/libibverbs/libvmw_pvrdma-rdmav59.so

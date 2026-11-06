@@ -154,7 +154,7 @@ if __name__ == '__main__':
     os.environ['LOCAL_RANK'] = str(local_rank)
     os.environ['MASTER_ADDR'] = str(args.master_addr)
     os.environ['MASTER_PORT'] = str(args.master_port)
-    os.environ['NCCL_SOCKET_IFNAME'] = 'ai0'
+    #os.environ['NCCL_SOCKET_IFNAME'] = 'ai0'
 
     torch.distributed.init_process_group(
         backend="nccl",
