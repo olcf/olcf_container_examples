@@ -1,0 +1,47 @@
+Bootstrap: docker
+from: docker.io/rocm/pytorch:rocm7.14.1_ubuntu24.04_py3.13_pytorch_release_2.12.0
+
+%environment
+    # Point to rocm locations
+    export ROCM_PATH=/opt/rocm
+    export LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH"
+    export PATH="/opt/rocm/bin:$PATH"
+    
+
+%post
+
+set -xe
+
+# Installing some prerequisites
+
+apt-get update && apt-get install -y \
+  wget less gfortran vim sudo gzip tar make autoconf automake \
+ hwloc libhwloc-dev binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which \
+  libnl-genl-3-dev libyaml-dev libmunge-dev \
+  build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3 python3-docutils pandoc \
+  rpm2cpio cpio
+
+
+echo "installing rdma-core 61.1"
+
+wget https://github.com/linux-rdma/rdma-core/releases/download/v61.1/rdma-core-61.1.tar.gz
+tar xzf rdma-core-61.1.tar.gz
+cd rdma-core-61.1/
+
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+      ..          # add -GNinja if you have ninja installed
+make -j32
+make install  # or: sudo ninja install
+
+# installing patched libionic.so from AMD
+cd /
+wget https://repo.radeon.com/amdainic/pensando/el9/1.117.5-a-196/libionic-26.08.28.001-1.el9.src.rpm
+rpm2cpio libionic-26.08.28.001-1.el9.src.rpm | cpio -idmv
+tar xzf libionic-26.08.28.001.tar.gz
+cd libionic-26.08.28.001
+./autogen.sh
+./build.sh --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu
+cd build
+make install
