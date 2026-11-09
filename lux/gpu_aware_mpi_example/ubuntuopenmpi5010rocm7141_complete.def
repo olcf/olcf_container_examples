@@ -1,0 +1,100 @@
+Bootstrap: docker
+From: rocm/dev-ubuntu-24.04:7.14.1-full
+
+%environment
+    # Point to MPICH binaries, libraries man pages
+    export OMPI_DIR=/opt/ompi
+    export PATH="$OMPI_DIR/bin:$PATH"
+    export LD_LIBRARY_PATH="$OMPI_DIR/lib:$LD_LIBRARY_PATH"
+    export MANPATH=$OMPI_DIR/share/man:$MANPATH
+    # Point to rocm locations
+    export ROCM_PATH=/opt/rocm
+    export LD_LIBRARY_PATH="/opt/rocm/lib:/opt/rocm/lib64:$LD_LIBRARY_PATH"
+    export PATH="/opt/rocm/bin:$PATH"
+    
+%files
+  ping_pong_gpu_aware.cpp /ping_pong_gpu_aware.cpp
+
+%post
+# By default you start at the root '/' location in the container images filesystem
+ls
+
+set -xe
+
+# Installing some prerequisites
+
+apt-get update && apt-get install -y \
+  wget less gfortran vim sudo gzip tar make autoconf automake \
+ hwloc libhwloc-dev binutils cpp libc6-dev m4 texinfo zlib1g-dev git patch pkg-config which \
+  libnl-genl-3-dev libyaml-dev libmunge-dev \
+  build-essential cmake gcc libudev-dev libnl-3-dev libnl-route-3-dev ninja-build pkg-config valgrind python3-dev cython3 python3-docutils pandoc \
+  rpm2cpio cpio
+
+
+echo "installing rdma-core 61.1"
+
+wget https://github.com/linux-rdma/rdma-core/releases/download/v61.1/rdma-core-61.1.tar.gz
+tar xzf rdma-core-61.1.tar.gz
+cd rdma-core-61.1/
+
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+      ..          # add -GNinja if you have ninja installed
+make -j32
+make install  # or: sudo ninja install
+
+# installing patched libionic.so from AMD
+cd /
+wget https://repo.radeon.com/amdainic/pensando/el9/1.117.5-a-196/libionic-26.08.28.001-1.el9.src.rpm
+rpm2cpio libionic-26.08.28.001-1.el9.src.rpm | cpio -idmv
+tar xzf libionic-26.08.28.001.tar.gz
+cd libionic-26.08.28.001
+./autogen.sh
+./build.sh --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu
+cd build
+make install
+
+cd /
+echo "Installing UCX 1.22 and UCC 1.8.0"
+wget https://github.com/openucx/ucx/releases/download/v1.22.0/ucx-1.22.0.tar.gz
+tar xzf ucx-1.22.0.tar.gz
+cd ucx-1.22.0
+mkdir build
+cd build
+# --without-go --disable-doxygen-doc --disable-assertions --enable-compiler-opt=3 --without-java --enable-shared --enable-static --disable-logging --enable-mt --with-openmp --enable-optimizations --disable-params-check --disable-gtest --with-pic --without-cuda --enable-cma --without-dc --with-dm --without-gdrcopy --without-ib-hw-tm --without-knem --with-rc --with-ud --without-xpmem --without-mlx5 --without-fuse3 --without-bfd --with-rdmacm=/usr --with-verbs=/usr --with-avx 'CPPFLAGS=-I/opt/rocm-7.2.4/include -I/opt/rocm-7.2.4/include/hip -I/opt/rocm-7.2.4/include/hsa' 'LDFLAGS=-L/opt/rocm-7.2.4/lib -L/opt/rocm-7.2.4/lib' --with-rocm=/opt/rocm-7.2.4 --enable-builtin-memcpy=no
+../configure --prefix=/usr --with-rdmacm=/usr --enable-cma --without-dc --with-dm --without-gdrcopy --without-ib-hw-tm --without-knem --with-rc --with-ud --without-xpmem --without-mlx5 --without-fuse3 --with-verbs=/usr 
+make -j32 install
+#
+cd /
+git clone https://github.com/openucx/ucc/
+cd ucc
+git checkout v1.8.0
+./autogen.sh
+# --without-cuda --with-rocm-arch=--offload-arch=gfx950 'CPPFLAGS=-I/opt/rocm-7.2.4/include -I/opt/rocm-7.2.4/include/hip -I/opt/rocm-7.2.4/include/hsa' 'LDFLAGS=-L/opt/rocm-7.2.4/lib -L/opt/rocm-7.2.4/lib' --with-rocm=/opt/rocm-7.2.4 --with-ucx=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/ucx-1.22.0-6mxtgzajy42jdkhytns5642l5uapiwe4 --without-rccl
+./configure --prefix=/usr --with-ucx=/usr --without-cuda --with-rocm-arch=--offload-arch=gfx950 'CPPFLAGS=-I/opt/rocm/include -I/opt/rocm/include/hip -I/opt/rocm/include/hsa' 'LDFLAGS=-L/opt/rocm/lib -L/opt/rocm/lib' --with-rocm=/opt/rocm  --without-rccl --with-rdmacm=/usr #--with-ibverbs=/usr
+make -j32 install
+
+
+echo "Installing Open MPI 5.0.10"
+export OMPI_DIR=/opt/ompi
+export OMPI_VERSION=5.0.10
+export OMPI_URL="https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$OMPI_VERSION.tar.bz2"
+mkdir -p /ompi
+mkdir -p /opt
+cd /ompi && wget -O openmpi-$OMPI_VERSION.tar.bz2 $OMPI_URL && tar -xjf openmpi-$OMPI_VERSION.tar.bz2
+# Compile and install
+# --enable-shared --disable-silent-rules --disable-sphinx --disable-dependency-tracking --enable-builtin-atomics --disable-static --enable-mpi1-compatibility --without-psm --without-psm2 --without-verbs --without-mxm --with-ucx=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/ucx-1.22.0-6mxtgzajy42jdkhytns5642l5uapiwe4 --without-ofi --without-fca --without-hcoll --with-ucc=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/ucc-1.8.0-7nw424nu2a5jtqvbt4lubgdqwy26vydy --without-xpmem --with-cma --without-knem --without-xpmem --without-alps --without-lsf --without-tm --with-slurm --without-sge --without-loadleveler --disable-memchecker --with-libevent=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/libevent-2.1.12-g66oi4uwpkuplysw3htxrqypgz7pud6p --with-pmix=/usr --with-prrte=/sw/lux/spack/envs/env_1/opt/llvm-amdgpu-7.2.4/prrte-3.0.13-r3q3arastrk6mtkheqc5v7upmr6au6xp --with-zlib=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/zlib-ng-2.3.3-rttjaitygp5g6wjzf2mhtyk4t2yukczy --with-hwloc=/sw/lux/spack/envs/env_1/opt/gcc-11.5.0/hwloc-2.13.0-yhevttzinca6cgun27zk62pvldhudewb --disable-java --disable-mpi-java --disable-io-romio --with-gpfs=no --without-cuda --with-rocm=/opt/rocm-7.2.4 --enable-wrapper-rpath --disable-wrapper-runpath --enable-mpi-fortran CFLAGS=-DYY_BUF_SIZE=1048576 --enable-debug
+cd /ompi/openmpi-$OMPI_VERSION && ./configure --prefix=$OMPI_DIR  --with-rocm=/opt/rocm --with-ucx=/usr --with-ucc=/usr --with-pmix --with-hwloc --without-verbs --without-ofi && make -j32 install
+
+# build ping_pong_gpu_aware.cpp
+cd /
+which hipcc
+echo $PATH
+export PATH="$OMPI_DIR/bin:/opt/rocm/bin:$PATH"
+export ROCM_PATH=/opt/rocm
+
+# ping pong GPU aware MPI
+hipcc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.cpp -I${OMPI_DIR}/include -L${OMPI_DIR}/lib -lmpi
+#mpicc -o ping_pong_gpu_aware.exe ping_pong_gpu_aware.o  -L${ROCM_PATH}/lib -lamdhip64
+
